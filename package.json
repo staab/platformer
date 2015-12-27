@@ -1,8 +1,9 @@
 {
   "jspm": {
     "dependencies": {
+      "CreateJS/EaselJS": "github:CreateJS/EaselJS@^0.8.2",
       "keyframes.js": "npm:keyframes.js@^0.0.2",
-      "konva": "npm:konva@^0.10.0",
+      "ramda": "npm:ramda@^0.19.0",
       "redux": "npm:redux@^3.0.5",
       "rx": "npm:rx@^4.0.7"
     },

@@ -14,11 +14,12 @@ System.config({
   },
 
   map: {
+    "CreateJS/EaselJS": "github:CreateJS/EaselJS@0.8.2",
     "babel": "npm:babel-core@5.8.34",
     "babel-runtime": "npm:babel-runtime@5.8.34",
     "core-js": "npm:core-js@1.2.6",
     "keyframes.js": "npm:keyframes.js@0.0.2",
-    "konva": "npm:konva@0.10.0",
+    "ramda": "npm:ramda@0.19.0",
     "redux": "npm:redux@3.0.5",
     "rx": "npm:rx@4.0.7",
     "github:jspm/nodelibs-assert@0.1.0": {
@@ -48,16 +49,14 @@ System.config({
     "npm:inherits@2.0.1": {
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
-    "npm:konva@0.10.0": {
-      "fs": "github:jspm/nodelibs-fs@0.1.2",
-      "process": "github:jspm/nodelibs-process@0.1.2",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.0"
-    },
     "npm:path-browserify@0.0.0": {
       "process": "github:jspm/nodelibs-process@0.1.2"
     },
     "npm:process@0.11.2": {
       "assert": "github:jspm/nodelibs-assert@0.1.0"
+    },
+    "npm:ramda@0.19.0": {
+      "process": "github:jspm/nodelibs-process@0.1.2"
     },
     "npm:redux@3.0.5": {
       "process": "github:jspm/nodelibs-process@0.1.2"
