@@ -1,30 +1,41 @@
 import * as THREE from 'three.js';
 import * as R from 'ramda';
+import {AnimatedTexture} from './graphics/animation.js';
 
-var geometries = {
-    cube: new THREE.BoxGeometry(1, 1, 1)
+const textureLoader = new THREE.TextureLoader();
+
+const geometries = {
+    cube: new THREE.BoxGeometry(1, 1, 1),
+    ground: new THREE.BoxGeometry(20, 6, 20)
 };
 
-var materials = {
-    normal: new THREE.MeshNormalMaterial({color: 0x00ff00})
+const materials = {
+    normal: new THREE.MeshNormalMaterial({color: 0x00ff00}),
+    basic: new THREE.MeshBasicMaterial({color: 0x00ff00})
+};
+
+const textures = {
+    cauliflower: textureLoader.load('/src/assets/sprites/cauliflower.png')
 };
 
 // High-level utility functions
 
 function getElementDimensions(element) {
-    return [window.innerWidth, window.innerHeight];
+    return [element.offsetWidth, element.offsetHeight];
 }
 
-function createPerspectiveCamera(width, height) {
-    return new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-}
-
-function createOrthographicCamera(width, height) {
-    return new THREE.OrthographicCamera(width / -100, width / 100, height / 100, height / -100, 1, 1000);
+function createOrthographicCamera(width, height, factor) {
+    return new THREE.OrthographicCamera(
+        width / -factor,
+        width / factor,
+        height / factor,
+        height / -factor,
+        -factor, factor
+    );
 }
 
 function createRenderer(width, height) {
-    var renderer = new THREE.WebGLRenderer();
+    var renderer = new THREE.WebGLRenderer({alpha: true});
 
     renderer.setSize(width, height);
 
@@ -46,23 +57,63 @@ function createCube(position) {
     return cube;
 }
 
+function createSprite(texture, scale) {
+    let material = new THREE.SpriteMaterial({map: texture, transparent: true});
+    let sprite = new THREE.Sprite(material);
+
+    sprite.scale.set(scale, scale, scale);
+
+    return sprite;
+}
+
+// =========================
 // Game
 
-function Game(element) {
+// Constructor
+
+function Game(element, eventEmitter) {
     var self = this,
-        [width, height] = getElementDimensions(element);
+        [width, height] = getElementDimensions(element),
+        scopeFactor = 50;
 
     Object.assign(self, {
+        element,
+        eventEmitter,
         scene: new THREE.Scene(),
-        camera: createOrthographicCamera(width, height),
+        scopeFactor: scopeFactor,
+        camera: createOrthographicCamera(width, height, scopeFactor),
         renderer: createRenderer(width, height),
-        cameraAngle: 0,
-        cameraTargetAngle: 0,
-        cameraRange: 5,
-        cameraOrbitSpeed: 0
+        cameraY: 3,
+        cameraAngle: {y: 0},
+        cameraTargetAngle: {y: 0},
+        cameraRange: scopeFactor / 5,
+        cameraOrbitSpeed: 0,
+        listeners: {
+            'keyup': self.keyup.bind(self),
+            'resize': self.resize.bind(self),
+            'render': self.render.bind(self)
+        },
+        animatedTextures: []
     });
 
-    element.appendChild(self.renderer.domElement);
+    // Put the camera a bit lower
+    self.camera.position.y = self.cameraY;
+
+    // Add the canvas element
+    self.element.appendChild(self.renderer.domElement);
+
+    // Set up initial state and event handlers
+    self.init();
+}
+
+// Setup/teardown methods
+
+Game.prototype.init = function init() {
+    var self = this,
+        ground = new THREE.Mesh(geometries.ground, materials.normal);
+
+    ground.position.y = -3.5;
+    self.scene.add(ground);
 
     self.scene.add(createCube(new THREE.Vector3(0, 0, 0)));
     self.scene.add(createCube(new THREE.Vector3(1, 0, 0)));
@@ -70,51 +121,106 @@ function Game(element) {
     self.scene.add(createCube(new THREE.Vector3(-2, 0, 1)));
     self.scene.add(createCube(new THREE.Vector3(0, 0, -3)));
 
+    let cTexture = new AnimatedTexture(textures.cauliflower, 42, 1, 42, {stopAt: 0});
+    let cMesh = createSprite(cTexture.texture, 3);
+    cTexture.start();
+    cMesh.position.set(0, 0.8, 9.5);
+    self.animatedTextures.push(cTexture);
+    self.scene.add(cMesh);
+
+    self.resize();
     self.render();
 
-    window.addEventListener('keyup', function (evt) {
-        if (!R.contains(evt.keyCode, [37, 39])) {
-            return;
-        }
+    self.setEventListeners('addEventListener');
+};
 
-        self.orbit(evt.keyCode === 37 ? 'left' : 'right');
-    });
-}
+Game.prototype.destroy = function destroy() {
+    var self = this;
 
-Game.prototype.render = function render() {
+    self.setEventListeners('removeEventListener');
+    self.element.removeChild(self.renderer.domElement);
+};
+
+Game.prototype.setEventListeners = function setEventListeners(method) {
+    var self = this;
+
+    self.eventEmitter[method]('keyup', self.listeners.keyup);
+    self.eventEmitter[method]('resize', self.listeners.resize);
+    self.eventEmitter[method]('visibilitychange', self.listeners.resize);
+};
+
+Game.prototype.resize = function resize() {
+    let self = this;
+    let [width, height] = getElementDimensions(self.element);
+
+    // Renderer
+    self.renderer.setSize(width, height);
+
+    // Camera
+    self.camera.left = width / -self.scopeFactor;
+    self.camera.right = width / self.scopeFactor;
+    self.camera.top = height / self.scopeFactor;
+    self.camera.bottom = height / -self.scopeFactor;
+    self.camera.updateProjectionMatrix();
+};
+
+// Event listeners
+
+Game.prototype.keyup = function keyup(evt) {
+    var self = this;
+
+    if (!R.contains(evt.keyCode, [37, 39])) {
+        return;
+    }
+
+    self.orbit(evt.keyCode === 37 ? 'left' : 'right');
+};
+
+// Rendering
+
+Game.prototype.render = function render(tFrame) {
     var self = this;
 
     window.requestAnimationFrame(self.render.bind(self));
 
     self.renderer.render(self.scene, self.camera);
-    self.orbitStep();
+    self.orbitStep(tFrame);
+
+    // Update animated textures
+    R.forEach(function animate(animation) {
+        animation.update(tFrame);
+    }, self.animatedTextures);
 };
 
 
-Game.prototype.orbitStep = function orbitStep() {
+Game.prototype.orbitStep = function orbitStep(tFrame) {
     var self = this;
 
     // We're done if the current and target angles match.
     // All the abs stuff is so that regardless of whether either is negative,
     // we're still checking how close they are. This misses the edge case of
     // when they're the same number but opposite signs.
-    if (Math.abs(Math.abs(self.cameraTargetAngle) - Math.abs(self.cameraAngle)) < 0.001) {
-        self.cameraAngle = self.cameraTargetAngle;
+    if (Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)) < 0.001) {
+        // No need to inflate numbers super high
+        self.cameraTargetAngle.y = self.cameraTargetAngle.y % (2 * Math.PI);
+        self.cameraAngle.y = self.cameraTargetAngle.y;
+
         self.cameraOrbitSpeed = 0;
     } else {
-        self.cameraAngle = self.cameraAngle + self.cameraOrbitSpeed;
+        self.cameraAngle.y = self.cameraAngle.y + self.cameraOrbitSpeed;
     }
 
-    self.camera.position.x = Math.cos(self.cameraAngle) * self.cameraRange;
-    self.camera.position.z = Math.sin(self.cameraAngle) * self.cameraRange;
-    self.camera.lookAt(new THREE.Vector3(0, 0, 0));
+    self.camera.position.x = Math.cos(self.cameraAngle.y) * self.cameraRange;
+    self.camera.position.z = Math.sin(self.cameraAngle.y) * self.cameraRange;
+    self.camera.lookAt(new THREE.Vector3(0, self.cameraY, 0));
 };
+
+// Public methods
 
 Game.prototype.orbit = function orbit(direction) {
     var self = this,
         baseSpeed = Math.PI/90, // 2 degrees
         angleDelta = Math.PI/2; // 90 degrees
-
 
     // Validate direction
     console.assert(R.contains(direction, ['left', 'right']));
@@ -122,121 +228,11 @@ Game.prototype.orbit = function orbit(direction) {
     // Reverse the direction if we're going left
     if (direction === 'left') {
         self.cameraOrbitSpeed = -baseSpeed;
-        self.cameraTargetAngle -= angleDelta;
+        self.cameraTargetAngle.y -= angleDelta;
     } else {
         self.cameraOrbitSpeed = baseSpeed;
-        self.cameraTargetAngle += angleDelta;
+        self.cameraTargetAngle.y += angleDelta;
     }
 };
 
 export {Game};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// function createSprite(config) {
-//     return new Easel.Sprite(new Easel.SpriteSheet(config));
-// }
-
-// function Character(initData) {
-//     var self = this;
-
-//     Object.assign(self, {
-//         initData,
-//         sprite: createSprite(initData)
-//     });
-// }
-
-// function Game(element) {
-//     var self = this;
-
-//     Object.assign(self, {
-//         stage: new Easel.Stage(element),
-//         characters: {
-//             iotfire: new Character({
-//                 images: ['/src/assets/sprites/iotfire.png'],
-//                 framerate: 12,
-//                 frames: {width: 160, height: 120, count: 38, regX: 0, regY: 0},
-//                 animations: {panic: [0, 37]}
-//             }),
-//             cauliflower: new Character({
-//                 images: ['/src/assets/sprites/cauliflower.png'],
-//                 framerate: 12,
-//                 frames: {width: 300, height: 300, count: 42, regX: 0, regY: 0},
-//                 animations: {
-//                     start: [0, 15],
-//                     walk: [16, 32],
-//                     stop: [33, 41]
-//                 }
-//             })
-//         }
-//     });
-
-//     let times = 0;
-
-//     Easel.Ticker.addEventListener('tick', self.onTick.bind(self));
-
-//     self.stage.addChild(self.characters.cauliflower.sprite);
-
-//     self.characters.cauliflower.sprite.gotoAndPlay("start");
-
-//     self.characters.cauliflower.sprite.addEventListener('click', function (evt) {
-//         times += 1;
-//         self.characters.cauliflower.sprite.x = 0;
-//         self.characters.cauliflower.sprite.gotoAndPlay("start");
-
-//     });
-
-//     self.characters.cauliflower.sprite.addEventListener('tick', function (evt){
-//         let character = self.characters.cauliflower,
-//             sprite = character.sprite,
-//             anims = character.initData.animations,
-//             animsKeys = R.keys(anims),
-//             currentAnimIndex = R.findIndex(R.equals(sprite.currentAnimation), animsKeys),
-//             nextAnimIndex = currentAnimIndex + 1,
-//             nextAnim = animsKeys[nextAnimIndex];
-
-//         if (sprite.paused) {
-//             return;
-//         }
-
-//         sprite.x = (times * 320) + Math.max(Math.min(sprite.currentFrame, 37), 5)  * 10;
-
-//         if (sprite.currentFrame === anims[sprite.currentAnimation][1]) {
-//             if (nextAnimIndex >= animsKeys.length) {
-//                 sprite.stop();
-//                 // sprite.gotoAndStop(animsKeys[0]);
-//             } else {
-//                 sprite.gotoAndPlay(nextAnim);
-//             }
-//         }
-//     });
-// }
-
-// Game.prototype.onTick = function onTick(evt) {
-//     var self = this;
-
-//     self.stage.update(evt);
-// };
-
-// export {Game};
