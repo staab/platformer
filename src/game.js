@@ -1,6 +1,6 @@
 import * as THREE from 'three.js';
 import * as R from 'ramda';
-import {AnimatedTexture} from './graphics/animation.js';
+import {AnimatedTexture, AnimatedSprite} from './graphics/animation.js';
 
 const textureLoader = new THREE.TextureLoader();
 
@@ -93,7 +93,7 @@ function Game(element, eventEmitter) {
             'resize': self.resize.bind(self),
             'render': self.render.bind(self)
         },
-        animatedTextures: []
+        sprites: []
     });
 
     // Put the camera a bit lower
@@ -120,13 +120,16 @@ Game.prototype.init = function init() {
     self.scene.add(createCube(new THREE.Vector3(0, 0, 1)));
     self.scene.add(createCube(new THREE.Vector3(-2, 0, 1)));
     self.scene.add(createCube(new THREE.Vector3(0, 0, -3)));
+    self.scene.add(createCube(new THREE.Vector3(0, 1, -3)));
 
-    let cTexture = new AnimatedTexture(textures.cauliflower, 42, 1, 42, {stopAt: 0});
-    let cMesh = createSprite(cTexture.texture, 3);
-    cTexture.start();
-    cMesh.position.set(0, 0.8, 9.5);
-    self.animatedTextures.push(cTexture);
-    self.scene.add(cMesh);
+    let cSprite = new AnimatedSprite(
+        new AnimatedTexture(textures.cauliflower, 42, 1, 42, {stopAt: 0}),
+        {scale: 3}
+    );
+    cSprite.mesh.position.set(0, 0.8, 9.5);
+    cSprite.animatedTexture.start();
+    self.sprites.push(cSprite);
+    self.scene.add(cSprite.mesh);
 
     self.resize();
     self.render();
@@ -184,16 +187,16 @@ Game.prototype.render = function render(tFrame) {
     window.requestAnimationFrame(self.render.bind(self));
 
     self.renderer.render(self.scene, self.camera);
-    self.orbitStep(tFrame);
+    self._orbitStep(tFrame);
 
     // Update animated textures
-    R.forEach(function animate(animation) {
-        animation.update(tFrame);
-    }, self.animatedTextures);
+    R.forEach(function updateSprite(sprite) {
+        sprite.update(tFrame);
+    }, self.sprites);
 };
 
 
-Game.prototype.orbitStep = function orbitStep(tFrame) {
+Game.prototype._orbitStep = function _orbitStep(tFrame) {
     var self = this;
 
     // We're done if the current and target angles match.
@@ -201,11 +204,12 @@ Game.prototype.orbitStep = function orbitStep(tFrame) {
     // we're still checking how close they are. This misses the edge case of
     // when they're the same number but opposite signs.
     if (Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)) < 0.001) {
-        // No need to inflate numbers super high
+        // No need to inflate numbers super high due to repeated rotations
         self.cameraTargetAngle.y = self.cameraTargetAngle.y % (2 * Math.PI);
         self.cameraAngle.y = self.cameraTargetAngle.y;
 
         self.cameraOrbitSpeed = 0;
+        self._placeSprites();
     } else {
         self.cameraAngle.y = self.cameraAngle.y + self.cameraOrbitSpeed;
     }
@@ -213,6 +217,10 @@ Game.prototype.orbitStep = function orbitStep(tFrame) {
     self.camera.position.x = Math.cos(self.cameraAngle.y) * self.cameraRange;
     self.camera.position.z = Math.sin(self.cameraAngle.y) * self.cameraRange;
     self.camera.lookAt(new THREE.Vector3(0, self.cameraY, 0));
+};
+
+Game.prototype._placeSprites = function _placeSprites() {
+    // Put sprites close to camera
 };
 
 // Public methods

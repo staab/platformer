@@ -1,5 +1,7 @@
 import * as THREE from 'three.js';
 
+// Animated Texture
+
 function AnimatedTexture(texture, tilesX, tilesY, numTiles, opts) {
     let self = this;
 
@@ -66,4 +68,31 @@ AnimatedTexture.prototype.stop = function stop() {
     self.paused = true;
 };
 
-export {AnimatedTexture};
+// Animated Sprite
+
+function AnimatedSprite(animatedTexture, opts) {
+    let self = this;
+    let material = new THREE.SpriteMaterial({
+        map: animatedTexture.texture,
+        transparent: true
+    });
+    let mesh = new THREE.Sprite(material);
+
+    Object.assign(self, {
+        animatedTexture,
+        mesh,
+        scale: 1
+    }, opts);
+
+}
+
+AnimatedSprite.prototype.update = function update(tFrame) {
+    let self = this;
+
+    self.mesh.scale.set(self.scale, self.scale, self.scale);
+    self.animatedTexture.update(tFrame);
+};
+
+// AnimatedSprite.prototype.
+
+export {AnimatedTexture, AnimatedSprite};
