@@ -1,3 +1,5 @@
+"use strict";
+
 import * as THREE from 'three.js';
 import * as R from 'ramda';
 import {AnimatedTexture, AnimatedSprite} from './graphics/animation.js';
@@ -5,8 +7,7 @@ import {AnimatedTexture, AnimatedSprite} from './graphics/animation.js';
 const textureLoader = new THREE.TextureLoader();
 
 const geometries = {
-    cube: new THREE.BoxGeometry(1, 1, 1),
-    ground: new THREE.BoxGeometry(20, 6, 20)
+    cube: new THREE.BoxGeometry(1, 1, 1)
 };
 
 const materials = {
@@ -18,7 +19,21 @@ const textures = {
     cauliflower: textureLoader.load('/src/assets/sprites/cauliflower.png')
 };
 
+
+const keyCodes = {
+    37: 'player-left',
+    38: 'player-jump',
+    39: 'player-right',
+    40: 'player-down',
+    65: 'orbit-left',
+    83: 'orbit-right'
+};
+
 // High-level utility functions
+
+function getKeyByValue(obj, value) {
+    return R.keys(obj).filter(key => obj[key] === value)[0];
+}
 
 function getElementDimensions(element) {
     return [element.offsetWidth, element.offsetHeight];
@@ -57,13 +72,34 @@ function createCube(position) {
     return cube;
 }
 
-function createSprite(texture, scale) {
-    let material = new THREE.SpriteMaterial({map: texture, transparent: true});
-    let sprite = new THREE.Sprite(material);
+function buildMap(x, y, z) {
+    let elements = [];
+    let elementsMap = {};
 
-    sprite.scale.set(scale, scale, scale);
+    function isAboveBlock(curX, curY, curZ) {
+        return curY === 0 || elementsMap[curY - 1][curX][curZ];
+    }
 
-    return sprite;
+    for (let curY = 0; curY <= y; curY += 1) {
+        elementsMap[curY] = {};
+
+        for (let curX = -x/2; curX <= x/2; curX += 1) {
+            elementsMap[curY][curX] = {};
+
+            for (let curZ = -z/2; curZ <= z/2; curZ += 1) {
+                elementsMap[curY][curX][curZ] = false;
+
+                // If it has a block below it randomly add one -
+                // make it more likely at lower levels.
+                if (isAboveBlock(curX, curY, curZ) && Math.random(y) * y > curY + 2 + y/2) {
+                    elementsMap[curY][curX][curZ] = true;
+                    elements.push(createCube(new THREE.Vector3(curX, curY, curZ)));
+                }
+            }
+        }
+    }
+
+    return elements;
 }
 
 // =========================
@@ -71,7 +107,7 @@ function createSprite(texture, scale) {
 
 // Constructor
 
-function Game(element, eventEmitter) {
+function Game(element, eventEmitter, opts = {}) {
     var self = this,
         [width, height] = getElementDimensions(element),
         scopeFactor = 50;
@@ -79,22 +115,22 @@ function Game(element, eventEmitter) {
     Object.assign(self, {
         element,
         eventEmitter,
+        // Basics
         scene: new THREE.Scene(),
+        renderer: createRenderer(width, height),
+        groundSize: 20,
+        // Camera
         scopeFactor: scopeFactor,
         camera: createOrthographicCamera(width, height, scopeFactor),
-        renderer: createRenderer(width, height),
         cameraY: 3,
         cameraAngle: {y: 0},
         cameraTargetAngle: {y: 0},
         cameraRange: scopeFactor / 5,
         cameraOrbitSpeed: 0,
-        listeners: {
-            'keyup': self.keyup.bind(self),
-            'resize': self.resize.bind(self),
-            'render': self.render.bind(self)
-        },
-        sprites: []
-    });
+        // Data
+        sprites: [],
+        player: null
+    }, opts);
 
     // Put the camera a bit lower
     self.camera.position.y = self.cameraY;
@@ -109,27 +145,33 @@ function Game(element, eventEmitter) {
 // Setup/teardown methods
 
 Game.prototype.init = function init() {
-    var self = this,
-        ground = new THREE.Mesh(geometries.ground, materials.normal);
+    let self = this;
 
-    ground.position.y = -3.5;
-    self.scene.add(ground);
+    // Add ground
+    {
+        let geometry = new THREE.BoxGeometry(self.groundSize, 6, self.groundSize);
 
-    self.scene.add(createCube(new THREE.Vector3(0, 0, 0)));
-    self.scene.add(createCube(new THREE.Vector3(1, 0, 0)));
-    self.scene.add(createCube(new THREE.Vector3(0, 0, 1)));
-    self.scene.add(createCube(new THREE.Vector3(-2, 0, 1)));
-    self.scene.add(createCube(new THREE.Vector3(0, 0, -3)));
-    self.scene.add(createCube(new THREE.Vector3(0, 1, -3)));
+        // Put the pivot of the geometry at the top
+        geometry.translate(0, -3.5, 0);
 
-    let cSprite = new AnimatedSprite(
-        new AnimatedTexture(textures.cauliflower, 42, 1, 42, {stopAt: 0}),
-        {scale: 3}
-    );
-    cSprite.mesh.position.set(0, 0.8, 9.5);
-    cSprite.animatedTexture.start();
-    self.sprites.push(cSprite);
-    self.scene.add(cSprite.mesh);
+        // Add the mesh
+        self.scene.add(new THREE.Mesh(geometry, materials.normal));
+    }
+
+    // Add terrain
+    // R.forEach(element => self.scene.add(element), buildMap(self.groundSize - 1, 10, self.groundSize - 1));
+
+    // Add player
+    {
+        self.player = new AnimatedSprite({
+            animatedTexture: new AnimatedTexture(textures.cauliflower, 42, 1, 42, {stopAt: 0}),
+            scale: new THREE.Vector3(3, 3, 3),
+            position: new THREE.Vector3(0, 0.8, 9.5)
+        });
+
+        self.sprites.push(self.player);
+        self.scene.add(self.player.mesh);
+    }
 
     self.resize();
     self.render();
@@ -147,9 +189,10 @@ Game.prototype.destroy = function destroy() {
 Game.prototype.setEventListeners = function setEventListeners(method) {
     var self = this;
 
-    self.eventEmitter[method]('keyup', self.listeners.keyup);
-    self.eventEmitter[method]('resize', self.listeners.resize);
-    self.eventEmitter[method]('visibilitychange', self.listeners.resize);
+    self.eventEmitter[method]('keydown', self.keydown.bind(self));
+    self.eventEmitter[method]('keyup', self.keyup.bind(self));
+    self.eventEmitter[method]('resize', self.resize.bind(self));
+    self.eventEmitter[method]('visibilitychange', self.resize.bind(self));
 };
 
 Game.prototype.resize = function resize() {
@@ -169,14 +212,48 @@ Game.prototype.resize = function resize() {
 
 // Event listeners
 
-Game.prototype.keyup = function keyup(evt) {
-    var self = this;
+Game.prototype.keydown = function keydown(evt) {
+    let self = this;
+    let action = keyCodes[evt.keyCode];
 
-    if (!R.contains(evt.keyCode, [37, 39])) {
+    if (!action) {
         return;
     }
 
-    self.orbit(evt.keyCode === 37 ? 'left' : 'right');
+    // Move the sprite left or right
+    if (R.contains(action, ['player-left', 'player-right'])) {
+        let negation = action === 'player-right' ? -1 : 1;
+        let camPos = R.pick(['x', 'z'], self.camera.position);
+        let axis = getKeyByValue(camPos, Math.min.apply(null, R.values(camPos)));
+        let direction = new THREE.Vector3();
+
+        // Set the axis to the delta
+        direction['set' + axis.toUpperCase()](negation * 0.1);
+
+        // Start the movement
+        self.player.startMove(direction);
+    }
+
+    if (action === 'player-jump') {
+        self.player.jump();
+    }
+};
+
+Game.prototype.keyup = function keyup(evt) {
+    let self = this;
+    let action = keyCodes[evt.keyCode];
+
+    if (!action) {
+        return;
+    }
+
+    if (R.contains('orbit-', action)) {
+        self.orbit(action.replace('orbit-', ''));
+    }
+
+    if (R.contains(action, ['player-left', 'player-right'])) {
+        self.player.stopMove();
+    }
 };
 
 // Rendering
@@ -184,32 +261,37 @@ Game.prototype.keyup = function keyup(evt) {
 Game.prototype.render = function render(tFrame) {
     var self = this;
 
+    // Get next frame as early as possible
     window.requestAnimationFrame(self.render.bind(self));
 
-    self.renderer.render(self.scene, self.camera);
+    // Orbit the camera
     self._orbitStep(tFrame);
 
-    // Update animated textures
-    R.forEach(function updateSprite(sprite) {
-        sprite.update(tFrame);
-    }, self.sprites);
+    // Update sprite texture and position
+    self._updateSprites(tFrame);
+
+    // Render all the objects
+    self.renderer.render(self.scene, self.camera);
 };
 
 
 Game.prototype._orbitStep = function _orbitStep(tFrame) {
     var self = this;
+    console.log(Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)));
+    if (self.cameraOrbitSpeed === 0) {
+        // Not doing anything right now
+    } else if (Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)) < 0.001) {
+        // We're done if the current and target angles match.
+        // All the abs stuff is so that regardless of whether either is negative,
+        // we're still checking how close they are. This misses the edge case of
+        // when they're the same number but opposite signs.
 
-    // We're done if the current and target angles match.
-    // All the abs stuff is so that regardless of whether either is negative,
-    // we're still checking how close they are. This misses the edge case of
-    // when they're the same number but opposite signs.
-    if (Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)) < 0.001) {
         // No need to inflate numbers super high due to repeated rotations
         self.cameraTargetAngle.y = self.cameraTargetAngle.y % (2 * Math.PI);
         self.cameraAngle.y = self.cameraTargetAngle.y;
 
+        // Stop orbiting
         self.cameraOrbitSpeed = 0;
-        self._placeSprites();
     } else {
         self.cameraAngle.y = self.cameraAngle.y + self.cameraOrbitSpeed;
     }
@@ -219,15 +301,25 @@ Game.prototype._orbitStep = function _orbitStep(tFrame) {
     self.camera.lookAt(new THREE.Vector3(0, self.cameraY, 0));
 };
 
-Game.prototype._placeSprites = function _placeSprites() {
-    // Put sprites close to camera
+Game.prototype._updateSprites = function _updateSprites(tFrame) {
+    let self = this;
+
+    R.forEach(sprite => sprite.update(tFrame), self.sprites);
+};
+
+Game.prototype._placeSprite = function _placeSprite(sprite) {
+    let self = this;
+    let dim = self.camera.position.x ? 'x' : 'z';
+    let sign = self.camera.position[dim] / Math.abs(self.camera.position[dim]);
+
+    sprite.position[dim] = sign * 9.5;
 };
 
 // Public methods
 
 Game.prototype.orbit = function orbit(direction) {
     var self = this,
-        baseSpeed = Math.PI/90, // 2 degrees
+        baseSpeed = Math.PI/30, // 6 degrees
         angleDelta = Math.PI/2; // 90 degrees
 
     // Validate direction
@@ -241,6 +333,10 @@ Game.prototype.orbit = function orbit(direction) {
         self.cameraOrbitSpeed = baseSpeed;
         self.cameraTargetAngle.y += angleDelta;
     }
+};
+
+Game.prototype.movePlayer = function movePlayer() {
+
 };
 
 export {Game};

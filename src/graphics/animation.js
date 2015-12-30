@@ -70,18 +70,19 @@ AnimatedTexture.prototype.stop = function stop() {
 
 // Animated Sprite
 
-function AnimatedSprite(animatedTexture, opts) {
+function AnimatedSprite(opts) {
     let self = this;
     let material = new THREE.SpriteMaterial({
-        map: animatedTexture.texture,
+        map: opts.animatedTexture.texture,
         transparent: true
     });
     let mesh = new THREE.Sprite(material);
 
     Object.assign(self, {
-        animatedTexture,
         mesh,
-        scale: 1
+        scale: new THREE.Vector3(1, 1, 1),
+        position: new THREE.Vector3(0, 0, 0),
+        motion: new THREE.Vector3(0, 0, 0)
     }, opts);
 
 }
@@ -89,10 +90,35 @@ function AnimatedSprite(animatedTexture, opts) {
 AnimatedSprite.prototype.update = function update(tFrame) {
     let self = this;
 
-    self.mesh.scale.set(self.scale, self.scale, self.scale);
+    // Adjust position based on movement
+    self.position.add(self.motion);
+
+    // Copy our canonical data to the mesh
+    self.mesh.scale.copy(self.scale);
+    self.mesh.position.copy(self.position);
+
+    // Update the texture
     self.animatedTexture.update(tFrame);
 };
 
-// AnimatedSprite.prototype.
+AnimatedSprite.prototype.startMove = function startMove(vector) {
+    let self = this;
+
+    self.animatedTexture.start();
+    self.motion.setX(vector.x);
+    self.motion.setZ(vector.z);
+};
+
+AnimatedSprite.prototype.stopMove = function stopMove() {
+    let self = this;
+
+    self.animatedTexture.stop();
+    self.motion.setX(0);
+    self.motion.setZ(0);
+};
+
+AnimatedSprite.prototype.jump = function jump() {
+
+};
 
 export {AnimatedTexture, AnimatedSprite};

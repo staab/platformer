@@ -1,4 +1,8 @@
 {
     "esnext": true,
-    "-W138": false
+    "-W138": false,
+    "predef": [
+        "window",
+        "console"
+    ]
 }
