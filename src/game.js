@@ -5,7 +5,13 @@ import * as R from 'ramda';
 import * as Physijs from 'chandlerprall/Physijs';
 import {AnimatedTexture, AnimatedSprite} from './graphics/animation.js';
 
-console.log(Physijs);
+// Gotta make three really global for physijs
+window.THREE = THREE;
+
+// Configure Physijs
+Physijs.scripts.worker = '/jspm_packages/github/chandlerprall/Physijs@master/physijs_worker.js';
+Physijs.scripts.ammo = '/jspm_packages/npm/ammo.js@0.0.8/ammo.js';
+
 const textureLoader = new THREE.TextureLoader();
 
 const geometries = {
@@ -118,7 +124,7 @@ function Game(element, eventEmitter, opts = {}) {
         element,
         eventEmitter,
         // Basics
-        scene: new THREE.Scene(),
+        scene: new Physijs.Scene(),
         renderer: createRenderer(width, height),
         groundSize: 20,
         // Camera

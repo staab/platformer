@@ -12,11 +12,15 @@ System.config({
     "github:*": "jspm_packages/github/*",
     "npm:*": "jspm_packages/npm/*"
   },
+
   meta: {
     "chandlerprall/Physijs": {
-      "globals": {'THREE': 'three.js'},
+      "globals": {
+        "THREE": "three.js"
+      }
     }
   },
+
   map: {
     "ammo.js": "npm:ammo.js@0.0.8",
     "babel": "npm:babel-core@5.8.34",
@@ -42,11 +46,6 @@ System.config({
     },
     "github:jspm/nodelibs-util@0.1.0": {
       "util": "npm:util@0.10.3"
-    },
-    "npm:ammo.js@0.0.8": {
-      "fs": "github:jspm/nodelibs-fs@0.1.2",
-      "path": "github:jspm/nodelibs-path@0.1.0",
-      "process": "github:jspm/nodelibs-process@0.1.2"
     },
     "npm:assert@1.3.0": {
       "util": "npm:util@0.10.3"
