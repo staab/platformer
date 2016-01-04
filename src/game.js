@@ -2,8 +2,10 @@
 
 import * as THREE from 'three.js';
 import * as R from 'ramda';
+import * as Physijs from 'chandlerprall/Physijs';
 import {AnimatedTexture, AnimatedSprite} from './graphics/animation.js';
 
+console.log(Physijs);
 const textureLoader = new THREE.TextureLoader();
 
 const geometries = {
@@ -277,7 +279,7 @@ Game.prototype.render = function render(tFrame) {
 
 Game.prototype._orbitStep = function _orbitStep(tFrame) {
     var self = this;
-    console.log(Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)));
+
     if (self.cameraOrbitSpeed === 0) {
         // Not doing anything right now
     } else if (Math.abs(Math.abs(self.cameraTargetAngle.y) - Math.abs(self.cameraAngle.y)) < 0.001) {

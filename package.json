@@ -1,6 +1,8 @@
 {
   "jspm": {
     "dependencies": {
+      "ammo.js": "npm:ammo.js@^0.0.8",
+      "chandlerprall/Physijs": "github:chandlerprall/Physijs@master",
       "keyframes.js": "npm:keyframes.js@^0.0.2",
       "ramda": "npm:ramda@^0.19.0",
       "redux": "npm:redux@^3.0.5",
