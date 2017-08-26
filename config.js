@@ -12,7 +12,6 @@ System.config({
     "github:*": "jspm_packages/github/*",
     "npm:*": "jspm_packages/npm/*"
   },
-
   meta: {
     "chandlerprall/Physijs": {
       "globals": {
@@ -20,7 +19,6 @@ System.config({
       }
     }
   },
-
   map: {
     "ammo.js": "npm:ammo.js@0.0.8",
     "babel": "npm:babel-core@5.8.34",

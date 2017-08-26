@@ -1,14 +1,13 @@
 "use strict";
 
-import * as THREE from 'three.js';
 import * as R from 'ramda';
+import * as THREE from 'three.js';
 import * as Physijs from 'chandlerprall/Physijs';
 import {AnimatedTexture, AnimatedSprite} from './graphics/animation.js';
 
+// Configure Physijs
 // Gotta make three really global for physijs
 window.THREE = THREE;
-
-// Configure Physijs
 Physijs.scripts.worker = '/jspm_packages/github/chandlerprall/Physijs@master/physijs_worker.js';
 Physijs.scripts.ammo = '/jspm_packages/npm/ammo.js@0.0.8/ammo.js';
 
@@ -26,7 +25,6 @@ const materials = {
 const textures = {
     cauliflower: textureLoader.load('/src/assets/sprites/cauliflower.png')
 };
-
 
 const keyCodes = {
     37: 'player-left',
